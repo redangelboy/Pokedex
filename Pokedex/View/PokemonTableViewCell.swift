@@ -8,7 +8,7 @@
 import Foundation
 import UIKit
 
-class pokemonTableViewCell: UITableViewCell {
+class PokemonTableViewCell: UITableViewCell {
     
     lazy var pokeImage: UIImageView = {
         var imageView = UIImageView(frame: .zero)

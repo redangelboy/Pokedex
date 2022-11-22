@@ -8,7 +8,8 @@ class PokemonViewController: UIViewController {
         table.translatesAutoresizingMaskIntoConstraints = false
         table.dataSource = self
         table.prefetchDataSource = self
-        table.register(UITableViewCell.self, forCellReuseIdentifier: "Cell")
+        table.register(PokemonTableViewCell.self, forCellReuseIdentifier: "Cell")
+        table.delegate = self
         
         
         return table
@@ -49,8 +50,6 @@ class PokemonViewController: UIViewController {
         self.view.addSubview(self.pokemonTableView)
         self.pokemonTableView.backgroundColor = .white
         
-        pokemonTableView.register(pokemonTableViewCell.self, forCellReuseIdentifier: "viewCell")
-        
         self.pokemonTableView.topAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.topAnchor, constant: 8).isActive = true
         self.pokemonTableView.leadingAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.leadingAnchor, constant: 8).isActive = true
         self.pokemonTableView.trailingAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.trailingAnchor, constant: -8).isActive = true
@@ -60,13 +59,9 @@ class PokemonViewController: UIViewController {
     
     func requestNextPage() {
         
-//        if self.pokemones.count > 132 { return }
-        
-        self.network.fetchPageResults(with: path + "?offset=\(self.offset)&limit=\(self.limit)") { pag in
+        self.network.getResults(with: path + "?offset=\(self.offset)&limit=\(self.limit)") { pag in
             guard let pag = pag else { return }
             self.offset += self.limit
-//            switch pag{
-//            case .some(let page):
                 self.pokemones.append(contentsOf: pag.results)
                 
                 
@@ -74,9 +69,6 @@ class PokemonViewController: UIViewController {
                     
                     self.pokemonTableView.reloadData()
                     
-//                }
-//            case .failure(let error):
-//                self.presentNetworkErrorAlert(error: error)
             }
             
             
@@ -96,18 +88,12 @@ extension PokemonViewController: UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        guard let cell = tableView.dequeueReusableCell(withIdentifier: "viewCell", for: indexPath) as? pokemonTableViewCell else { return UITableViewCell()}
+        guard let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath) as? PokemonTableViewCell else { return UITableViewCell()}
         
         
         
         print(indexPath)
-        self.network.fetchPageResults(with: path + "?offset=\(self.offset)&limit=\(self.limit)" ) { (page: PageResults?) in
-            
-            
-//            guard let page = page else {
-//                print("caught in page fetch")
-//                return }
-
+        self.network.getResults(with: path + "?offset=\(self.offset)&limit=\(self.limit)" ) { (page: PageResults?) in
             
         self.network.fetchPageResults(with: self.pokemones[indexPath.row].url){ (res: Pokemon?) in
                 DispatchQueue.main.async {
@@ -115,19 +101,16 @@ extension PokemonViewController: UITableViewDataSource {
 
                     cell.pokeTopLabel.text = (res?.name)
                     cell.pokeTopLabel.backgroundColor = .systemCyan
-            
-                
-//                    cell.pokeMedLabel.text = "algo"
                     cell.pokeMedLabel.text = "Type: \(res?.types?.compactMap { $0.type.name }.joined(separator: " , ") ?? "")"
                 
                     
                     guard let spriteRes = res?.sprites.frontDefault else {return}
-                    print(spriteRes)
+//                    print(spriteRes)
                     self.network.fetchImageData(path: (spriteRes)) { data in
                         
                         DispatchQueue.main.async {
                             guard let data = data else {return}
-                            print(data)
+//                            print(data)
                             cell.pokeImage.image = UIImage(data: data)
                         }
                     }
@@ -145,14 +128,51 @@ extension PokemonViewController: UITableViewDataSource {
 
 extension PokemonViewController: UITableViewDataSourcePrefetching {
     
-    // MARK: "New" way to do Pagination in UIKit
+
     func tableView(_ tableView: UITableView, prefetchRowsAt indexPaths: [IndexPath]) {
         let lastIndexPath = IndexPath(row: self.pokemones.count - 1, section: 0)
         guard indexPaths.contains(lastIndexPath) else { return }
         self.requestNextPage()
-        print("Algo ********************************************************"
-        )
     }
     
 }
 
+extension PokemonViewController: UITableViewDelegate {
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let navController = pokemonPlaceHolderViewController()
+        guard let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath) as? PokemonTableViewCell else {return}
+
+        
+        self.network.fetchPageResults(with: self.pokemones[indexPath.row].url){ (res: Pokemon?) in
+            DispatchQueue.main.async {
+                
+                guard let names = res?.name else {return}
+                
+                guard let abilis = res?.abilities else {return}
+                let abilitys = abilis.compactMap({ $0.ability.name }).joined(separator: " , ")
+                
+                guard let movez = res?.moves else {return}
+                let movezz = movez.compactMap({ $0.move.name}).joined(separator: " , ")
+                
+                navController.infoLabel.text =  ("Name: \(names)")
+                navController.infoLabel2.text =  ("Type: \(res?.types?.compactMap { $0.type.name }.joined(separator: " , ") ?? "")")
+                navController.infoLabel3.text = ("Abilities: \(abilitys)")
+                navController.infoText.text = ("Moves: \(movezz)")
+
+                guard let spriteRes = res?.sprites.frontDefault else {return}
+
+                self.network.fetchImageData(path: (spriteRes)) { data in
+                    DispatchQueue.main.async {
+                        guard let data = data else {return}
+
+                        navController.progImageView.image = UIImage(data: data)
+                        self.navigationController?.pushViewController(navController, animated: true)
+                        print("The selected path is \(indexPath)")
+                    }
+
+                }
+            }
+        }
+    }
+}

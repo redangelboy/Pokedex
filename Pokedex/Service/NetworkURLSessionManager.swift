@@ -20,7 +20,7 @@ class NetworkURLSessionManager {
 
 extension NetworkURLSessionManager {
     
-    func fetchPageResults(with urlStr: String, completion: @escaping (PageResults?) -> Void) {
+    func getResults(with urlStr: String, completion: @escaping (PageResults?) -> Void) {
         
         guard let url = URL(string: urlStr) else {
             completion(nil)
